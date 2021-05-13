@@ -26,10 +26,10 @@ for packet in cap.sniff_continuously():
         # split the payload into an array of bytes in hex notation
         payload = packet.tcp.payload.split(':')
 
-        # if the script detects a DST design is being sent
+        # if the script detects a DST design is being sent (set on line 92)
         if dst_incoming:
 
-            # and if the current packet is the first packet of the DST design
+            # and if the current packet is the first packet of the DST design (set on line 93)
             if first_packet:
 
                 # remove the first 12 bytes from the payload (indicating that a DST is being sent)
@@ -80,11 +80,17 @@ for packet in cap.sniff_continuously():
             # extract the current stitch index
             stitches = int(payload[16] + payload[15], 16)-1024
 
-            # get the state from the decimal data
-            print(functions.parse_ctrl_word(payload_dec))
+            # echo results
+            print("Total designs: " + str(designs) +
+                  ", current design: " + str(current_design) +
+                  ", current stitch: " + str(stitches)
+                  )
         else:
             # get the state from the decimal data
-            print(functions.parse_ctrl_word(payload_dec))
+            state = functions.parse_ctrl_word(payload_dec)
+
+            # echo result
+            print("Current state: " + state)
 
         # if the payload indicates that a DST design is being requested then flip the variables so when the PC sends the
         # design we can intercept it
@@ -95,7 +101,6 @@ for packet in cap.sniff_continuously():
         # if dst_incoming is set to False then reset
         elif not dst_incoming:
             first_packet = False
-            dst_incoming = False
 
         # otherwise write the DST design to a file
         else:
