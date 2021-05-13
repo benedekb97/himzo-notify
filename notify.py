@@ -4,17 +4,19 @@ import constant
 import functions
 
 
-# start capture loop
+# get arguments with defaults
 pc_ip = sys.argv[1] or constant.IP_PC
 machine_ip = sys.argv[2] or constant.IP_MACHINE
 port = sys.argv[3] or constant.COMMUNICATION_PORT
 
+# reset and define variables
 img_data = []
 dst_data = []
 image_set = False
 dst_incoming = False
 first_packet = False
 
+# create capture object
 cap = pyshark.LiveCapture(None, bpf_filter="tcp port " + str(port))
 
 # iterate captured packets
