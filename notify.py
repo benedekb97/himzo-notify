@@ -83,10 +83,10 @@ for packet in cap.sniff_continuously():
         if len(payload) == 21:
 
             # extract the number of designs
-            designs = int(payload[constant.NUMBER_OF_DESIGNS_BYTE])
+            designs = int(payload[constant.NUMBER_OF_DESIGNS_BYTE], 16)
 
             # extract the current design
-            current_design = int(payload[constant.CURRENT_DESIGN_BYTE])+1
+            current_design = int(payload[constant.CURRENT_DESIGN_BYTE], 16)+1
 
             # extract the current stitch index
             stitches = int(payload[16] + payload[15], 16)-1024
