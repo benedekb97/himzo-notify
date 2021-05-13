@@ -5,9 +5,20 @@ import functions
 
 
 # get arguments with defaults
-pc_ip = sys.argv[1] or constant.IP_PC
-machine_ip = sys.argv[2] or constant.IP_MACHINE
-port = sys.argv[3] or constant.COMMUNICATION_PORT
+if len(sys.argv) > 1:
+    pc_ip = sys.argv[1]
+else:
+    pc_ip = constant.IP_PC
+
+if len(sys.argv) > 2:
+    machine_ip = sys.argv[2]
+else:
+    machine_ip = constant.IP_MACHINE
+
+if len(sys.argv) > 3:
+    port = sys.argv[3]
+else:
+    port = constant.COMMUNICATION_PORT
 
 # reset and define variables
 dst_data = []
@@ -85,12 +96,12 @@ for packet in cap.sniff_continuously():
                   ", current design: " + str(current_design) +
                   ", current stitch: " + str(stitches)
                   )
-        else:
+        elif len(payload) == 15:
             # get the state from the decimal data
             state = functions.parse_ctrl_word(payload_dec)
 
             # echo result
-            print("Current state: " + state)
+            print("Current state: " + str(state))
 
         # if the payload indicates that a DST design is being requested then flip the variables so when the PC sends the
         # design we can intercept it
