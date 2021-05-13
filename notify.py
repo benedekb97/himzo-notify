@@ -10,9 +10,7 @@ machine_ip = sys.argv[2] or constant.IP_MACHINE
 port = sys.argv[3] or constant.COMMUNICATION_PORT
 
 # reset and define variables
-img_data = []
 dst_data = []
-image_set = False
 dst_incoming = False
 first_packet = False
 
