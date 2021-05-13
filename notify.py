@@ -1,102 +1,113 @@
+import sys
 import pyshark
 import constant
-
-
-# parse control word
-def process_data(data, c_stitches=None):
-
-    if c_stitches is not None:
-        print("Running")
-
-    # check if machine is running
-    if data[7] == constant.STATE_RUNNING_FIRST and data[8] == constant.STATE_RUNNING_SECOND:
-        print("Running")
-    elif data[7] == constant.STATE_END_FIRST and data[8] == constant.STATE_END_SECOND:
-        print("End")
-    elif data[7] == constant.STATE_OTHER_FIRST:
-        if data[8] == constant.STATE_MACHINE_ERROR_SECOND:
-            print("Machine error")
-        elif data[8] == constant.STATE_END_MANUAL_SECOND:
-            print("End")
-        elif data[8] == constant.STATE_STOP_SECOND:
-            print("Stop switch")
-        elif data[8] == constant.STATE_NEEDLE_STOP_SECOND:
-            print("Needle stop")
-        elif data[8] == constant.STATE_THREAD_BREAK_SECOND:
-            print("Thread break")
-
-
-# check incoming data if its a dst file
-def check_for_dst(data):
-    return data[len(data)-7] == "54" and data[len(data)-8] == "53" and data[len(data)-9] == "44" and data[8] == "48"
-
-
-# check whether incoming data is the end of the packet
-def check_for_end_of_packet(data):
-    return data[len(data)-1] == "00" and data[len(data)-2] == "0d" and data[len(data)-3] == "03"
-
-
-# check whether incoming data is the start of a packet
-def check_for_start(data):
-    for i in range(2, len(data)-1):
-        if data[i] == "83" and data[i-1] == "00" and data[i-2] == "00":
-            return i
+import functions
 
 
 # start capture loop
-cap = pyshark.LiveCapture(None, bpf_filter='tcp port 7891')
+pc_ip = sys.argv[1] or constant.IP_PC
+machine_ip = sys.argv[2] or constant.IP_MACHINE
+port = sys.argv[3] or constant.COMMUNICATION_PORT
+
 img_data = []
 dst_data = []
 image_set = False
 dst_incoming = False
 first_packet = False
+
+cap = pyshark.LiveCapture(None, bpf_filter="tcp port " + str(port))
+
+# iterate captured packets
 for packet in cap.sniff_continuously():
-    if packet[1].src == constant.IP_PC and hasattr(packet.tcp, 'payload'):
+
+    # if the packet has a payload, and the packet originates from the PC (indicating a DST is being sent to the machine)
+    if packet[1].src == pc_ip and hasattr(packet.tcp, 'payload'):
+
+        # split the payload into an array of bytes in hex notation
         payload = packet.tcp.payload.split(':')
+
+        # if the script detects a DST design is being sent
         if dst_incoming:
+
+            # and if the current packet is the first packet of the DST design
             if first_packet:
+
+                # remove the first 12 bytes from the payload (indicating that a DST is being sent)
                 payload = payload[12:]
+
+                # set this variable as false, so
                 first_packet = False
-            if check_for_end_of_packet(payload):
+
+            # if the packet has an 'end of packet' indicator remove it
+            if functions.check_for_end_of_packet(payload):
                 payload = payload[:len(payload)-3]
+
+            # iterate through the bytes of the payload
             for i in range(0, len(payload)):
+
+                # if i is the third from last element in the payload, and the last three bytes in the payload are EOF
                 if i+2 < len(payload)-1 and payload[i] == "00" and payload[i+1] == "00" and payload[i+2] == "f3":
-                    dst_data.append("0000f31a")
+
+                    # append the DST equivalent of EOF to the DST data
+                    dst_data.append(constant.DST_EOF)
                     dst_incoming = False
                     first_packet = False
                     break
+
+                # otherwise append the current byte to the DST data.
                 dst_data.append(payload[i])
 
-    if packet[1].src == constant.IP_MACHINE and hasattr(packet.tcp, 'payload'):
+    # if the packet originates from the machine, and it has a payload
+    if packet[1].src == machine_ip and hasattr(packet.tcp, 'payload'):
+
+        # split the payload into an array of bytes in hex notation
         payload = packet.tcp.payload.split(':')
         payload_dec = []
+
+        # convert the hexadecimal bytes to decimal notation (eg. 1a => 26)
         for hex_number in payload:
             payload_dec.append(int(hex_number, 16))
 
+        # if the payload contains exactly 21 bytes
         if len(payload) == 21:
-            designs = int(payload[10])
-            current_design = int(payload[12])+1
 
-            print("Total designs: ", designs, "Current design: ", current_design)
+            # extract the number of designs
+            designs = int(payload[constant.NUMBER_OF_DESIGNS_BYTE])
+
+            # extract the current design
+            current_design = int(payload[constant.CURRENT_DESIGN_BYTE])+1
+
+            # extract the current stitch index
             stitches = int(payload[16] + payload[15], 16)-1024
-            process_data(payload_dec, stitches)
+
+            # get the state from the decimal data
+            print(functions.parse_ctrl_word(payload_dec))
         else:
-            process_data(payload_dec)
-        if check_for_dst(payload):
+            # get the state from the decimal data
+            print(functions.parse_ctrl_word(payload_dec))
+
+        # if the payload indicates that a DST design is being requested then flip the variables so when the PC sends the
+        # design we can intercept it
+        if functions.check_for_dst(payload):
             dst_incoming = True
             first_packet = True
-        elif "".join(payload) == "553e554d0a0050505200000000590d00":
-            dst_incoming = True
-            first_packet = True
+
+        # if dst_incoming is set to False then reset
         elif not dst_incoming:
             first_packet = False
             dst_incoming = False
+
+        # otherwise write the DST design to a file
         else:
+
+            # drop the first byte
             dst_data = dst_data[1:]
             dst_data = bytes.fromhex("".join(dst_data))
             with open("design.dst", 'wb') as output:
                 output.write(dst_data)
                 output.close()
+
+            # reset
             dst_data = []
             first_packet = False
             dst_incoming = False
