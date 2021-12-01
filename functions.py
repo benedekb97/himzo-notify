@@ -25,8 +25,12 @@ def check_for_dst(data):
         data[len(data)-7] == constant.DST_CHECK[0] and \
         data[len(data)-8] == constant.DST_CHECK[1] and \
         data[len(data)-9] == constant.DST_CHECK[2] and \
-        data[8] == constant.DST_CHECK[3] or \
-        "".join(data) == constant.DST_REQUEST
+        data[9] == constant.DST_CHECK[3]
+
+
+# check incoming data if it is a dst request
+def check_for_dst_request(data):
+    return "".join(data) == constant.DST_REQUEST
 
 
 # check whether incoming data is the end of the packet

@@ -117,7 +117,8 @@ for packet in cap.sniff_continuously():
         payload = packet.tcp.payload.split(':')
 
         # if the script detects a DST design is being sent (set on line 92)
-        if dst_incoming:
+        if dst_incoming or ''.join(payload[:12]) == "553c554d090c505053010007":
+            dst_incoming = True
 
             # and if the current packet is the first packet of the DST design (set on line 93)
             if first_packet:
@@ -176,7 +177,7 @@ for packet in cap.sniff_continuously():
                   ", current stitch: " + str(stitches)
                   )
 
-            update_web_status(api_token, api_email, api_password, None, stitches, current_design, designs)
+            update_web_status(api_token, api_email, api_password, constant.STATE_RUNNING, stitches, current_design, designs)
         elif len(payload) == 15:
             # get the state from the decimal data
             state = functions.parse_ctrl_word(payload_dec)
@@ -189,6 +190,9 @@ for packet in cap.sniff_continuously():
         # if the payload indicates that a DST design is being requested then flip the variables so when the PC sends the
         # design we can intercept it
         if functions.check_for_dst(payload):
+            dst_incoming = True
+            first_packet = True
+        elif functions.check_for_dst_request(payload):
             dst_incoming = True
             first_packet = True
 
@@ -205,6 +209,8 @@ for packet in cap.sniff_continuously():
             with open("design.dst", 'wb') as output:
                 output.write(dst_data)
                 output.close()
+
+            upload_dst_file(get_api_token(api_email, api_password), api_email, api_password)
 
             # reset
             dst_data = []
